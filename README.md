@@ -3,7 +3,7 @@
 This tool allows to obtain a fully analyzable .ELF file from a vmlinux/vmlinuz/bzImage/zImage kernel image (either a raw binary blob or a preexisting but stripped .ELF file), with recovered function and variable symbols.
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/marin-m/vmlinux-to-elf/master/pics/landing_illustration.png">
+<img src="https://raw.githubusercontent.com/marin-m/vmlinux-to-elf/master/pics/landing_illustration.png" alt="Landing illustration">
 </p>
 
 For this, it scans your kernel for a kernel symbol table ([kallsyms](https://github.com/torvalds/linux/blob/master/kernel/kallsyms.c)), a compressed symbol table that is present in almost every kernel, mostly unaltered.
@@ -13,7 +13,7 @@ Because the concerned symbol table is originally compressed, it should recover s
 It produces an .ELF file that you can analyze using IDA Pro and Ghidra. This tool is hence useful for embedded systems reverse engineering.
 
 <p align="center">
-<a href="https://snapcraft.io/vmlinux-to-elf"><img src="pics/snap_badge.svg?raw=true"></a> &nbsp; <a href="https://flathub.org/en/apps/re.fossplant.vmlinux-to-elf"><img src="pics/flathub_badge.svg?raw=true"></a>
+<a href="https://snapcraft.io/vmlinux-to-elf"><img src="https://raw.githubusercontent.com/marin-m/vmlinux-to-elf/master/pics/snap_badge.svg?raw=true" alt="Get it from the Snap Store"></a> &nbsp; <a href="https://flathub.org/en/apps/re.fossplant.vmlinux-to-elf"><img src="https://raw.githubusercontent.com/marin-m/vmlinux-to-elf/master/pics/flathub_badge.svg?raw=true" alt="Get it on Flathub"></a>
 </p>
 
 Usage:
@@ -25,6 +25,10 @@ vmlinux-to-elf <input_kernel.bin> <output_kernel.elf>
 kallsyms-finder <input_kernel.bin> # If installed with uv
 vmlinux-to-elf.kallsyms-finder # If installed with snap
 
+# Command line, just decompress the kernel:
+vmlinuz-decompressor <input_kernel.bin> <output_kernel.bin> # If installed with uv
+vmlinux-to-elf.vmlinuz-decompressor # If installed with snap
+
 # Graphical:
 vmlinux-to-elf-gui # If installed with uv
 vmlinux-to-elf.gui # If installed with snap
@@ -32,9 +36,9 @@ flatpak run re.fossplant.vmlinux-to-elf # If installed with flatpak
 ```
 
 <p align="center">
-<img src="pics/Screenshot_2_Kernel_loaded.png?raw=true" alt="Application main screen" width="850">
+<img src="https://raw.githubusercontent.com/marin-m/vmlinux-to-elf/master/pics/Screenshot_2_Kernel_loaded.png?raw=true" alt="Application main screen" width="850">
     
-<img src="pics/Screenshot_6_Offsets_view_with_hex_dump.png?raw=true" alt="Application kernel offsets view" width="850">
+<img src="https://raw.githubusercontent.com/marin-m/vmlinux-to-elf/master/pics/Screenshot_6_Offsets_view_with_hex_dump.png?raw=true" alt="Application kernel offsets view" width="850">
 </p>
 
 Installation:
@@ -42,30 +46,38 @@ Installation:
 # Install CLI+GUI with Snap (recommended on Ubuntu)
 sudo snap install vmlinux-to-elf
 
-# Install CLI+GUI with uv (recommended on other distributions)
-sudo apt install gir1.2-adw-1 gir1.2-gtk-4.0
+# Install CLI+GUI with yay (recommended on Arch, Manjaro)
+yay -S vmlinux-to-elf libadwaita python-gobject
+
+# Install CLI+GUI with uv (example with Fedora)
+sudo dnf install -y uv glib2-devel libadwaita-devel gtk4-devel \
+    gobject-introspection-devel python3-gobject-devel \
+    python3-devel cairo-devel @development-tools
 uv tool install vmlinux-to-elf[gui]
+vmlinux-to-elf-gui --install-metadata # Install .desktop file
 
 # Install CLI with uv and GUI with Flatpak (recommended on
 # distributions with libadwaita < 1.6)
-sudo snap install --classic astral-uv
+sudo dnf install -y uv flatpak @development-tools
 uv tool install vmlinux-to-elf
 
-sudo apt install flatpak
-flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install re.fossplant.vmlinux-to-elf
 ```
 
 Local development environment setup:
 
 ```bash
+sudo snap install --classic astral-uv
+sudo apt install git
 git clone git@github.com:marin-m/vmlinux-to-elf.git
 
 # Dependencies for the GTK-4 GUI
-sudo apt install libgirepository-2.0-dev libgtk-4-dev libadwaita-1-dev \
-    gir1.2-adw-1 gir1.2-gtk-4.0 python3-dev glib-compile-resources
+sudo apt install libgirepository-2.0-dev libadwaita-1-dev \
+    gir1.2-adw-1 gir1.2-gtk-4.0 python3-dev blueprint-compiler
 
 cd vmlinux-to-elf
+cp -a .github/hooks/* .git/hooks/
 # Download Python modules and initialize virtualenv (creates ".venv",
 # call "source .venv/bin/activate" to set up)
 uv sync --extra gui
@@ -179,11 +191,17 @@ options:
 
 ```
 
+## How is the source code organized?
+
+<a href="https://raw.githubusercontent.com/marin-m/vmlinux-to-elf/master/pics/vmlinux-to-elf internal charting.pdf?raw=true">
+<img src="https://docs.google.com/drawings/d/e/2PACX-1vSnK-GDr74AXNPLHgwmHC9eH0e9MtMzSZ7XLqBkwynmImcT6K1QQP0WL6i5BG1zgajOnSaVxq6QQHRL/pub?w=1440&amp;h=2160&amp;" alt="Source code chart">
+</a>
+
 ## Bug fixes, improvements, etc.
 
-Don't hesitate to [open an issue](https://github.com/marin-m/vmlinux-to-elf/issues/new) for any suggestion of improvement.
+Don't hesitate to [open an issue](https://github.com/marin-m/vmlinux-to-elf/issues/new/choose) for any suggestion of improvement.
 
 Please privilege the current Github repository issues and pull requests in priority for reporting bugs, asking questions, etc.
 
-Alternatively, you can use [this matrix channel](https://matrix.to/#/!ppalJoNacGRgESlXnK:matrix.org) if needing directly contact with the author of the project, but please reserve this as a secondary channel e.g for sending kernel samples, what goes here otherwise is more likely to be lost.
+Alternatively, you can use [this matrix channel](https://matrix.to/#/#vmlinux-to-elf:matrix.org) if needing directly contact with the author of the project, but please reserve this as a secondary channel e.g for sending kernel samples, what goes here otherwise is more likely to be lost.
 
