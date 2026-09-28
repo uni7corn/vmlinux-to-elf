@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 # -*- encoding: Utf-8 -*-
 from ctypes import (
-    BigEndianStructure,
     LittleEndianStructure,
     c_char,
-    c_int32,
-    c_int64,
     c_uint8,
     c_uint16,
     c_uint32,
     c_uint64,
 )
 from argparse import ArgumentParser
-from enum import IntEnum
-from io import BytesIO
 
 import vmlinux_to_elf.utils.pretty_print
 
@@ -191,7 +186,12 @@ def main():
     with open(args.input_file, 'rb') as fd:
         struct = LinuxARM64EFIStub()
         fd.readinto(struct)
-        assert struct.code0 == b'MZ@\xfa'
+
+        # code0 may be nop or a branch address
+        # in non-EFI setups (e.g Android kernels),
+        # depending on the kernel version
+
+        # assert struct.code0 == b'MZ@\xfa'
         assert struct.magic == b'ARM\x64'
         struct.pretty_print()
         fd.seek(0x58 + struct.pe_size_of_optional_header)

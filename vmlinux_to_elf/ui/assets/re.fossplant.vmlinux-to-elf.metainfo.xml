@@ -48,7 +48,7 @@
   <recommends>
     <display_length compare="ge">360</display_length>
   </recommends>
-  <url type="bugtracker">https://github.com/marin-m/vmlinux-to-elf/issues</url>
+  <url type="bugtracker">https://github.com/marin-m/vmlinux-to-elf/issues/new/choose</url>
   <url type="homepage">https://github.com/marin-m/vmlinux-to-elf</url>
   <url type="contact">https://matrix.to/#/#vmlinux-to-elf:matrix.org</url>
   <url type="faq">https://github.com/marin-m/vmlinux-to-elf#readme</url>
@@ -60,6 +60,78 @@ https://hughsie.github.io/oars/index.html
 -->
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.3.6" date="2026-05-20">
+      <description>
+        <ul>
+          <li>ARM64: Fix guessing the relative base in certain kernels (issue #54)</li>
+          <li>ARM64: Correctly display relocated data into the hex preview in the UI</li>
+          <li>Add support for decompressing uImage LZMA kernels</li>
+          <li>Provisionally add support for reserializing section-stripped ELF kernels</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.3.5" date="2026-05-20">
+      <description>
+        <ul>
+          <li>Correctly support back parsing uImage files with the UI (issue #3)</li>
+          <li>Correctly handle the presence of sh_type in SHT_REL and SHT_RELA, and lack thereof (issue #37)</li>
+          <li>Fix an issue in "find_kallsyms_markers_uncompressed" providing wrong offsets on OpenWRT images (issue #99)</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.3.4" date="2026-05-14">
+      <description>
+        <p>Correctly consider that ARM64 kernels have their base address aligned on 0x80000</p>
+      </description>
+    </release>
+    <release version="1.3.3" date="2026-05-14">
+      <description>
+        <p>Fix regression over recursively unpacking data</p>
+        <p>Correctly indicate whenever the kernel base address was found using kallsyms_relative_base</p>
+      </description>
+    </release>
+    <release version="1.3.2" date="2026-05-14">
+      <description>
+        <p>Correctly show the guessed base address in the GTK UI for non-ARM64 kernels</p>
+        <p>Allow re-entrance of symbolized ARM64 kernels</p>
+      </description>
+    </release>
+    <release version="1.3.1" date="2026-05-14">
+      <description>
+        <p>Fix minor code breakage introduced by a previous patch</p>
+      </description>
+    </release>
+    <release version="1.3.0" date="2026-05-13">
+      <description>
+        <p>Ensure that no data is overridden in the packed kallsyms zone when applying ARM64 relocations (issue #95)</p>
+        <p>Add support for the Linux 7.0 kernel (PR #97 thanks to @bahorn)</p>
+        <p>Fix detecting the boundaries of the elf64_rela array</p>
+        <p>Use 0x20000 instead of 0x10000 as a default kernel base address alignment when inferring from ARM64 relocations (issue #95)</p>
+        <p>Use 0x2000 instead of 0x1000 as a default kernel base address alignment when inferring from symbol table (issue #67)</p>
+      </description>
+    </release>
+    <release version="1.2.3" date="2026-03-18">
+      <description>
+        <p>Implement an UI information row + button to export the decompressed and unpacked kernel</p>
+        <p>Print useful information about the packing or compression method used through GUI and CLI</p>
+        <p>Correctly pipe the "kallsyms-finder" output to stdout instead of stderr</p>
+      </description>
+    </release>
+    <release version="1.2.2" date="2026-03-12">
+      <description>
+        <p>Modify the "pyproject.toml" file to accept Peewee 3.x so that the AUR package can be bumped</p>
+        <p>Add a "vmlinuz-decompressor" script for just decompressing kernels without symbolizing</p>
+        <p>Improve app documentation</p>
+      </description>
+    </release>
+    <release version="1.2.1" date="2026-03-09">
+      <description>
+        <p>Fix regression in parsing certain Android images (issue #81)</p>
+        <p>Fix ".desktop" metadata</p>
+        <p>Fix displaying "Adw.ToastOverlay" with recent GTK-4 versions</p>
+        <p>Implement Snapcraft packaging</p>
+      </description>
+    </release>
     <release version="1.2.0" date="2026-03-03">
       <description>
         <p>Release a new GTK-4 based UI</p>
@@ -76,6 +148,7 @@ https://hughsie.github.io/oars/index.html
     <dbus type="user">re.fossplant.vmlinux-to-elf</dbus>
     <binary>vmlinux-to-elf</binary>
     <binary>kallsyms-finder</binary>
+    <binary>vmlinuz-decompressor</binary>
     <binary>vmlinux-to-elf-gui</binary>
     <mediatype>application/x-pie-executable</mediatype>
     <mediatype>application/x-executable</mediatype>

@@ -5,6 +5,7 @@ from io import BytesIO
 
 from vmlinux_to_elf.core.architecture_detecter import ArchitectureGuessError
 from vmlinux_to_elf.core.kallsyms import KallsymsFinder, KallsymsSymbolType
+from vmlinux_to_elf.core.auto_unpack import Signature
 from vmlinux_to_elf.utils.elf import (
     SH_FLAGS,
     SPECIAL_SECTION_INDEX,
@@ -49,13 +50,14 @@ class ElfSymbolizer:
         override_relative: bool = None,
         # extra_info: bool = False,
     ):
+
         if file_contents.startswith(
-            b'\x27\x05\x19\x56'
+            Signature.uImage.value
         ):  # uImage header magic (always big-endian)
-            if file_offset is None:
+            if not file_offset:
                 file_offset = 64  # uImage header size (image_header_t from u-boot/image.h)
 
-            if base_address is None:
+            if not base_address:
                 base_address = int.from_bytes(
                     file_contents[4 * 4 : 4 * 5], 'big'
                 )
@@ -76,6 +78,9 @@ class ElfSymbolizer:
                 'The architecture could not be guessed successfully'
             )
 
+        # If we got an ELF file input, retain
+        # the interesting metadata
+
         if file_contents.startswith(b'\x7fELF'):
             kernel = ElfFile.from_bytes(BytesIO(file_contents))
 
@@ -84,7 +89,11 @@ class ElfSymbolizer:
                 kallsyms_finder.is_big_endian, kallsyms_finder.is_64_bits
             )
 
-            #  Previsouly the register size was based on the kernel version string: bool(kallsyms_finder.offset_table_element_size >= 8 or search('itanium|(?:amd|aarch|ia|arm|x86_|\D-)64', kallsyms_finder.version_string, flags = IGNORECASE))
+            # Previously the register size was based on the kernel
+            # version string:
+            #  bool(kallsyms_finder.offset_table_element_size >= 8 or
+            #    search('itanium|(?:amd|aarch|ia|arm|x86_|\D-)64',
+            #    kallsyms_finder.version_string, flags = IGNORECASE))
 
             if elf_machine is not None:
                 kernel.file_header.e_machine = elf_machine
@@ -105,39 +114,17 @@ class ElfSymbolizer:
                 | SH_FLAGS.SHF_WRITE
             )
 
-            first_symbol_virtual_address = next(
-                (
-                    symbol.virtual_address
-                    for symbol in kallsyms_finder.symbols
-                    if symbol.symbol_type == KallsymsSymbolType.TEXT
-                ),
-                None,
-            )
-
-            if kallsyms_finder.has_base_relative:
-                first_symbol_virtual_address = min(
-                    first_symbol_virtual_address,
-                    kallsyms_finder.relative_base_address,
-                )
-
             if base_address is not None:
                 progbits.section_header.sh_addr = base_address
                 logging.info(
-                    f'[+] An explicit base address was given ({progbits.section_header.sh_addr:x})'
+                    f'[+] Reconstructing ELF with provided base address ({progbits.section_header.sh_addr:x})'
                 )
-            elif kallsyms_finder.kernel_text_candidate:
+            else:
                 progbits.section_header.sh_addr = (
                     kallsyms_finder.kernel_text_candidate
                 )
                 logging.info(
-                    f'[+] Guessed the base address using the kernel_text_candidate heuristic ({progbits.section_header.sh_addr:x})'
-                )
-            else:
-                progbits.section_header.sh_addr = (
-                    first_symbol_virtual_address & 0xFFFFFFFFFFFFF000
-                )
-                logging.info(
-                    f'[+] Guessed the base address using the first_symbol_virtual_address fallback heuristic ({progbits.section_header.sh_addr:x})'
+                    f'[+] Reconstructing ELF with guessed base address ({progbits.section_header.sh_addr:x})'
                 )
 
             kernel.sections += [null, progbits]
@@ -147,9 +134,9 @@ class ElfSymbolizer:
                 progbits.section_header.sh_size = (
                     kallsyms_finder.elf64_rela_start
                 )
-                progbits.section_contents = file_contents[
-                    : progbits.section_header.sh_size
-                ]
+                progbits.section_contents = bytearray(
+                    file_contents[: progbits.section_header.sh_size]
+                )
                 progbits2 = ElfProgbits(kernel)
                 progbits2.section_name = '.kernel2'
                 progbits2.section_header.sh_flags = (
@@ -164,12 +151,12 @@ class ElfSymbolizer:
                 progbits2.section_header.sh_size = (
                     len(file_contents) - kallsyms_finder.elf64_rela_end_excl
                 )
-                progbits2.section_contents = file_contents[
-                    kallsyms_finder.elf64_rela_end_excl :
-                ]
+                progbits2.section_contents = bytearray(
+                    file_contents[kallsyms_finder.elf64_rela_end_excl :]
+                )
                 kernel.sections += [progbits2]
             else:
-                progbits.section_contents = file_contents
+                progbits.section_contents = bytearray(file_contents)
                 progbits.section_header.sh_size = len(file_contents)
 
             bss = ElfNoBits(kernel)
@@ -253,43 +240,9 @@ class ElfSymbolizer:
             shstrtab = ElfStrtab(kernel)
             shstrtab.section_name = '.shstrtab'
 
+            kernel.symbol_table = symtab
             kernel.section_string_table = shstrtab
             kernel.sections += [symtab, strtab, shstrtab]
-
-        sections = sorted(
-            [i for i in kernel.sections if i.section_header.sh_addr > 0],
-            key=lambda x: x.section_header.sh_addr,
-        )
-
-        def _find_section(address):
-            """
-            Uses binary search to quickly find the section which the address belongs to
-            """
-            # Set baseline and roofline hypotheses, expressed in
-            # section table indexes:
-            lower_range, upper_range = 0, len(sections) - 1
-            # Wait for the hypotheses to converge
-            while lower_range < upper_range:
-                # Mean operation to pick a new tentative hypothesis
-                # (add one to ensure to ceil-round the upper
-                # hypothesis in case of a difference of 1)
-                middle = (lower_range + upper_range + 1) // 2
-                if (
-                    sections[middle].section_header.sh_addr <= address
-                ):  # Test the hypothesis
-                    lower_range = middle  # Use the hypothesis as a baseline
-                else:
-                    upper_range = middle - 1  # Disqualify the hypothesis
-            if (
-                sections[lower_range].section_header.sh_addr
-                <= address
-                <= sections[lower_range].section_header.sh_addr
-                + sections[lower_range].section_header.sh_size
-            ):
-                return sections[
-                    lower_range
-                ]  # Select the best hypothesis if it qualifies
-            return None
 
         elf_symbol_class = {
             (False, False): Elf32LittleEndianSymbolTableEntry,
@@ -327,7 +280,7 @@ class ElfSymbolizer:
             if symbol.symbol_type == KallsymsSymbolType.ABSOLUTE:
                 elf_symbol.st_shndx = SPECIAL_SECTION_INDEX.SHN_ABS
             else:
-                elf_symbol.associated_section = _find_section(
+                elf_symbol.associated_section = kernel.find_section(
                     symbol.virtual_address
                 )
 
@@ -353,8 +306,10 @@ class ElfSymbolizer:
                     kernel.is_big_endian, kernel.is_64_bits
                 )
 
+                R_AARCH64_RELATIVE = 0x403
+
                 relocation.r_offset = rela[0]
-                relocation.r_info_type = 1027
+                relocation.r_info_type = R_AARCH64_RELATIVE
                 relocation.r_addend = rela[2]
 
                 srela.relocation_table.append(relocation)
